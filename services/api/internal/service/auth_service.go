@@ -23,6 +23,9 @@ type AuthService interface {
 	Login(email, password string) (*domain.User, string, string, error)
 	RefreshToken(refreshToken string) (string, error)
 	GetUserByID(id uuid.UUID) (*domain.User, error)
+	ChangePassword(userID uuid.UUID, currentPassword, newPassword string) error
+	DeleteAccount(userID uuid.UUID) error
+	UpdateProfile(userID uuid.UUID, name, phone string) error
 }
 
 type authService struct {
@@ -138,4 +141,45 @@ func (s *authService) generateRefreshToken(user *domain.User) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.cfg.JWTSecret))
+}
+
+func (s *authService) ChangePassword(userID uuid.UUID, currentPassword, newPassword string) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+
+	// Verify current password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
+		return errors.New("current password is incorrect")
+	}
+
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	user.Password = string(hashedPassword)
+	return s.userRepo.Update(user)
+}
+
+func (s *authService) DeleteAccount(userID uuid.UUID) error {
+	return s.userRepo.Delete(userID)
+}
+
+func (s *authService) UpdateProfile(userID uuid.UUID, name, phone string) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+
+	if name != "" {
+		user.Name = name
+	}
+	if phone != "" {
+		user.Phone = phone
+	}
+
+	return s.userRepo.Update(user)
 }

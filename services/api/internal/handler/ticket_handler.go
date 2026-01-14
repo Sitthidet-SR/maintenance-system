@@ -249,3 +249,18 @@ func (h *TicketHandler) GetStats(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": stats})
 }
 
+func (h *TicketHandler) GetLogs(c *gin.Context) {
+	ticketID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ticket ID"})
+		return
+	}
+
+	logs, err := h.ticketService.GetLogs(ticketID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch logs"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": logs})
+}

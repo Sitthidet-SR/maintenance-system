@@ -32,16 +32,19 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	ticketRepo := repository.NewTicketRepository(db)
 	commentRepo := repository.NewCommentRepository(db)
+	ticketLogRepo := repository.NewTicketLogRepository(db)
+	attachmentRepo := repository.NewAttachmentRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, cfg)
-	ticketService := service.NewTicketService(ticketRepo, commentRepo, userRepo, hub)
+	ticketService := service.NewTicketService(ticketRepo, commentRepo, userRepo, ticketLogRepo, hub)
 	userService := service.NewUserService(userRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
 	ticketHandler := handler.NewTicketHandler(ticketService)
 	userHandler := handler.NewUserHandler(userService)
+	attachmentHandler := handler.NewAttachmentHandler(attachmentRepo)
 
 	// Setup Gin router
 	r := gin.Default()
@@ -59,6 +62,9 @@ func main() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
+	// Static file server for uploads
+	r.Static("/uploads", "./uploads")
+
 	// API v1
 	api := r.Group("/api/v1")
 	{
@@ -70,6 +76,9 @@ func main() {
 			auth.POST("/refresh", authHandler.RefreshToken)
 			auth.POST("/logout", authHandler.Logout)
 			auth.GET("/me", middleware.AuthMiddleware(cfg), authHandler.GetMe)
+			auth.POST("/change-password", middleware.AuthMiddleware(cfg), authHandler.ChangePassword)
+			auth.DELETE("/delete-account", middleware.AuthMiddleware(cfg), authHandler.DeleteAccount)
+			auth.PATCH("/profile", middleware.AuthMiddleware(cfg), authHandler.UpdateProfile)
 		}
 
 		// Protected routes
@@ -88,6 +97,10 @@ func main() {
 				tickets.POST("/:id/assign", middleware.RequireTechnician(), ticketHandler.Assign)
 				tickets.POST("/:id/comments", ticketHandler.AddComment)
 				tickets.GET("/:id/comments", ticketHandler.GetComments)
+				tickets.GET("/:id/logs", ticketHandler.GetLogs)
+				tickets.POST("/:id/attachments", attachmentHandler.Upload)
+				tickets.GET("/:id/attachments", attachmentHandler.GetByTicketID)
+				tickets.DELETE("/:id/attachments/:attachmentId", attachmentHandler.Delete)
 			}
 
 			// User routes (Admin only)

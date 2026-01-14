@@ -39,6 +39,19 @@ import { Ticket } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useLanguage } from '@/components/providers/LanguageProvider';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
 
 // Stats interface
 interface DashboardStats {
@@ -177,6 +190,75 @@ export default function DashboardPage() {
           description={t.dashboard.stats.completedDesc}
           className="bg-white dark:bg-card border-l-4 border-l-green-500/50"
         />
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Pie Chart - Status Distribution */}
+        <Card className="border-none shadow-sm bg-white dark:bg-card">
+          <CardHeader>
+            <CardTitle className="text-lg">สถานะงานแจ้งซ่อม</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'รอดำเนินการ', value: (stats.open || 0) + (stats.pending || 0), color: '#ef4444' },
+                      { name: 'กำลังดำเนินการ', value: stats.inProgress || 0, color: '#f59e0b' },
+                      { name: 'เสร็จสิ้น', value: stats.resolved || 0, color: '#22c55e' },
+                    ].filter(d => d.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({ name, value }) => `${name}: ${value}`}
+                  >
+                    {[
+                      { name: 'รอดำเนินการ', value: (stats.open || 0) + (stats.pending || 0), color: '#ef4444' },
+                      { name: 'กำลังดำเนินการ', value: stats.inProgress || 0, color: '#f59e0b' },
+                      { name: 'เสร็จสิ้น', value: stats.resolved || 0, color: '#22c55e' },
+                    ].filter(d => d.value > 0).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bar Chart - Status Breakdown */}
+        <Card className="border-none shadow-sm bg-white dark:bg-card">
+          <CardHeader>
+            <CardTitle className="text-lg">สรุปตามสถานะ</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    { name: 'รอดำเนินการ', value: (stats.open || 0) + (stats.pending || 0), fill: '#ef4444' },
+                    { name: 'กำลังดำเนินการ', value: stats.inProgress || 0, fill: '#f59e0b' },
+                    { name: 'เสร็จสิ้น', value: stats.resolved || 0, fill: '#22c55e' },
+                  ]}
+                  layout="vertical"
+                  margin={{ top: 20, right: 30, left: 80, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" />
+                  <YAxis type="category" dataKey="name" />
+                  <Tooltip />
+                  <Bar dataKey="value" barSize={30} radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Content Table */}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Bell, Menu, Search } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { useNotificationStore } from '@/stores';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow } from 'date-fns';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { MobileSidebar } from './MobileSidebar';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 
@@ -25,8 +26,16 @@ interface HeaderProps {
 }
 
 export function Header({ onSearch }: HeaderProps) {
+  const router = useRouter();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
   const { t } = useLanguage();
+
+  const handleNotificationClick = (notification: typeof notifications[0]) => {
+    markAsRead(notification.id);
+    if (notification.ticketId) {
+      router.push(`/tickets/${notification.ticketId}`);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-4 bg-background/60 backdrop-blur-xl px-6 transition-all duration-200">
@@ -40,6 +49,7 @@ export function Header({ onSearch }: HeaderProps) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72 border-r border-border/40 bg-background/80 backdrop-blur-xl">
+            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
             <MobileSidebar />
           </SheetContent>
         </Sheet>
@@ -103,7 +113,7 @@ export function Header({ onSearch }: HeaderProps) {
                     className={`flex flex-col items-start gap-1 p-3 cursor-pointer mx-1 my-1 rounded-lg transition-colors ${
                       !notification.read ? 'bg-primary/5' : 'hover:bg-muted/40'
                     }`}
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-center gap-2 w-full">
                       <span className={`text-sm ${!notification.read ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'}`}>

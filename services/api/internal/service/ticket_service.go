@@ -20,20 +20,24 @@ type TicketService interface {
 	AddComment(ticketID, userID uuid.UUID, content string) (*domain.Comment, error)
 	GetComments(ticketID uuid.UUID) ([]domain.Comment, error)
 	GetStats() (map[string]int64, error)
+	GetLogs(ticketID uuid.UUID) ([]domain.TicketLog, error)
+	LogActivity(ticketID, userID uuid.UUID, action, oldValue, newValue string) error
 }
 
 type ticketService struct {
 	repo        repository.TicketRepository
 	commentRepo repository.CommentRepository
 	userRepo    repository.UserRepository
+	logRepo     repository.TicketLogRepository
 	hub         *websocket.Hub
 }
 
-func NewTicketService(repo repository.TicketRepository, commentRepo repository.CommentRepository, userRepo repository.UserRepository, hub *websocket.Hub) TicketService {
+func NewTicketService(repo repository.TicketRepository, commentRepo repository.CommentRepository, userRepo repository.UserRepository, logRepo repository.TicketLogRepository, hub *websocket.Hub) TicketService {
 	return &ticketService{
 		repo:        repo,
 		commentRepo: commentRepo,
 		userRepo:    userRepo,
+		logRepo:     logRepo,
 		hub:         hub,
 	}
 }
@@ -157,9 +161,12 @@ func (s *ticketService) AddComment(ticketID, userID uuid.UUID, content string) (
 	if err := s.commentRepo.Create(comment); err != nil {
 		return nil, err
 	}
-	
-	// If needed emit comment event, but basic req just wants ticket updates
-	// s.hub.Broadcast("comment:created", comment)
+
+	// Load user data to include in response
+	user, err := s.userRepo.FindByID(userID)
+	if err == nil {
+		comment.User = user
+	}
 
 	return comment, nil
 }
@@ -170,4 +177,19 @@ func (s *ticketService) GetComments(ticketID uuid.UUID) ([]domain.Comment, error
 
 func (s *ticketService) GetStats() (map[string]int64, error) {
 	return s.repo.GetStats()
+}
+
+func (s *ticketService) GetLogs(ticketID uuid.UUID) ([]domain.TicketLog, error) {
+	return s.logRepo.FindByTicketID(ticketID)
+}
+
+func (s *ticketService) LogActivity(ticketID, userID uuid.UUID, action, oldValue, newValue string) error {
+	log := &domain.TicketLog{
+		TicketID: ticketID,
+		UserID:   userID,
+		Action:   action,
+		OldValue: oldValue,
+		NewValue: newValue,
+	}
+	return s.logRepo.Create(log)
 }

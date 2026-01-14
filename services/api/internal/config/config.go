@@ -37,6 +37,13 @@ type Config struct {
 	// Upload
 	MaxUploadSize int64
 	UploadDir     string
+
+	// SMTP
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUser     string
+	SMTPPassword string
+	SMTPFrom     string
 }
 
 func Load() *Config {
@@ -76,6 +83,13 @@ func Load() *Config {
 		// Upload
 		MaxUploadSize: 10 * 1024 * 1024, // 10MB
 		UploadDir:     getEnv("UPLOAD_DIR", "./uploads"),
+
+		// SMTP
+		SMTPHost:     getEnv("SMTP_HOST", ""),
+		SMTPPort:     getEnvAsInt("SMTP_PORT", 587),
+		SMTPUser:     getEnv("SMTP_USER", ""),
+		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:     getEnv("SMTP_FROM", "noreply@maintenance-system.local"),
 	}
 }
 

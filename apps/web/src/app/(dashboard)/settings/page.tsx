@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { User, Bell, Shield, Palette, Save, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,19 +17,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { useAuthStore } from '@/stores';
 import { toast } from 'sonner';
 import { useLanguage } from '@/components/providers/LanguageProvider';
+import { apiPost, apiDelete, apiPatch } from '@/lib/api';
+import { useTheme } from 'next-themes';
 
 export default function SettingsPage() {
-  const { user } = useAuthStore();
+  const router = useRouter();
+  const { user, logout } = useAuthStore();
   const { t, locale, setLocale } = useLanguage();
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Profile settings
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState('');
+
+  // Password
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   // Notification settings
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -36,14 +57,24 @@ export default function SettingsPage() {
   const [ticketUpdates, setTicketUpdates] = useState(true);
   const [newAssignments, setNewAssignments] = useState(true);
 
-  // Appearance settings
-  const [theme, setTheme] = useState('system');
+  // Appearance settings - using next-themes
+  const { theme, setTheme } = useTheme();
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success(t.common.success);
-    setIsSaving(false);
+    try {
+      const response = await apiPatch<{ success: boolean }>('/auth/profile', {
+        name,
+        phone,
+      });
+      if (response.success) {
+        toast.success('บันทึกข้อมูลโปรไฟล์สำเร็จ');
+      }
+    } catch (error) {
+      toast.error('ไม่สามารถบันทึกข้อมูลได้');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveNotifications = async () => {
@@ -51,6 +82,52 @@ export default function SettingsPage() {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     toast.success(t.common.success);
     setIsSaving(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast.error('รหัสผ่านใหม่ไม่ตรงกัน');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const response = await apiPost<{ success: boolean }>('/auth/change-password', {
+        currentPassword,
+        newPassword,
+      });
+      if (response.success) {
+        toast.success('เปลี่ยนรหัสผ่านสำเร็จ');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'ไม่สามารถเปลี่ยนรหัสผ่านได้');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      const response = await apiDelete<{ success: boolean }>('/auth/delete-account');
+      if (response.success) {
+        toast.success('ลบบัญชีสำเร็จ');
+        logout();
+        router.push('/login');
+      }
+    } catch (error) {
+      toast.error('ไม่สามารถลบบัญชีได้');
+    } finally {
+      setIsDeletingAccount(false);
+      setDeleteConfirmOpen(false);
+    }
   };
 
   return (
@@ -292,17 +369,38 @@ export default function SettingsPage() {
                   <div className="space-y-4 max-w-md">
                     <div className="space-y-2">
                       <Label htmlFor="current-password">{t.settings.security.currentPassword}</Label>
-                      <Input id="current-password" type="password" />
+                      <Input 
+                        id="current-password" 
+                        type="password" 
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="new-password">{t.settings.security.newPassword}</Label>
-                      <Input id="new-password" type="password" />
+                      <Input 
+                        id="new-password" 
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="confirm-password">{t.settings.security.confirmNewPassword}</Label>
-                      <Input id="confirm-password" type="password" />
+                      <Input 
+                        id="confirm-password" 
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
                     </div>
-                    <Button>{t.settings.security.updatePassword}</Button>
+                    <Button 
+                      onClick={handleChangePassword} 
+                      disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+                    >
+                      {isChangingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {t.settings.security.updatePassword}
+                    </Button>
                   </div>
                 </div>
 
@@ -313,7 +411,32 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     {t.settings.security.dangerZoneDesc}
                   </p>
-                  <Button variant="destructive">{t.settings.security.deleteAccount}</Button>
+                  <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="destructive">{t.settings.security.deleteAccount}</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>ยืนยันการลบบัญชี</DialogTitle>
+                        <DialogDescription>
+                          การดำเนินการนี้ไม่สามารถย้อนกลับได้ ข้อมูลทั้งหมดของคุณจะถูกลบออกจากระบบ
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                          ยกเลิก
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          onClick={handleDeleteAccount}
+                          disabled={isDeletingAccount}
+                        >
+                          {isDeletingAccount && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          ลบบัญชี
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </CardContent>

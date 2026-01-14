@@ -53,7 +53,7 @@ export function Sidebar() {
   };
 
   return (
-    <div className="fixed inset-y-0 left-0 z-50 w-72 backdrop-blur-xl bg-white/60 dark:bg-slate-950/60 border-r border-slate-200/50 dark:border-slate-800/50 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] transition-all duration-300 flex flex-col">
+    <div className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 backdrop-blur-xl bg-white/60 dark:bg-slate-950/60 border-r border-slate-200/50 dark:border-slate-800/50 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] transition-all duration-300 flex-col">
       {/* Logo Area */}
       <div className="flex items-center h-20 px-8 border-b border-slate-200/30 dark:border-slate-800/30">
         <div className="flex items-center gap-3 group cursor-pointer">

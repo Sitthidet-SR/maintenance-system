@@ -10,7 +10,8 @@ import {
   MoreHorizontal,
   Eye,
   Pencil,
-  Trash2
+  Trash2,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,6 +84,31 @@ export default function TicketsPage() {
     setFilters({ ...filters, priority: value === 'all' ? undefined : value as TicketPriority });
   };
 
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Title', 'Status', 'Priority', 'Category', 'Location', 'Created', 'Updated'];
+    const csvContent = [
+      headers.join(','),
+      ...tickets.map(ticket => [
+        ticket.id,
+        `"${ticket.title.replace(/"/g, '""')}"`,
+        ticket.status,
+        ticket.priority,
+        ticket.category,
+        `"${ticket.location || ''}"`,
+        new Date(ticket.createdAt).toISOString(),
+        new Date(ticket.updatedAt).toISOString(),
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tickets_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -93,12 +119,18 @@ export default function TicketsPage() {
             {t.ticketList.subtitle}
           </p>
         </div>
-        <Link href="/tickets/create">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            {t.ticketList.newTicket}
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleExportCSV}>
+            <Download className="h-4 w-4" />
+            Export CSV
           </Button>
-        </Link>
+          <Link href="/tickets/create">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              {t.ticketList.newTicket}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

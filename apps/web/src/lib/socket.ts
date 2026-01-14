@@ -1,5 +1,5 @@
 import { Ticket } from '@/types';
-import { useTicketStore } from '@/stores';
+import { useTicketStore, useNotificationStore } from '@/stores';
 
 let socket: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -75,19 +75,45 @@ const scheduleReconnect = () => {
 
 const handleMessage = (msg: { event: string; data: any }) => {
   const { event, data } = msg;
-  const store = useTicketStore.getState();
+  const ticketStore = useTicketStore.getState();
+  const notificationStore = useNotificationStore.getState();
 
   console.log('[WebSocket] Received:', event, data);
 
   switch (event) {
     case 'ticket:created':
-      store.addTicketToList(data as Ticket);
+      ticketStore.addTicketToList(data as Ticket);
+      notifyTicketListeners(event, data);
+      // Add notification for admins/technicians
+      notificationStore.addNotification({
+        title: 'งานแจ้งซ่อมใหม่',
+        message: `${(data as Ticket).title}`,
+        type: 'ticket',
+        ticketId: (data as Ticket).id,
+      });
       break;
     case 'ticket:updated':
-      store.updateTicketInList(data as Ticket);
+      ticketStore.updateTicketInList(data as Ticket);
+      notifyTicketListeners(event, data);
+      // Add notification for status changes
+      const ticket = data as Ticket;
+      const statusText: Record<string, string> = {
+        'OPEN': 'เปิดใหม่',
+        'IN_PROGRESS': 'กำลังดำเนินการ',
+        'PENDING': 'รอดำเนินการ',
+        'RESOLVED': 'แก้ไขเสร็จแล้ว',
+        'CLOSED': 'ปิดแล้ว',
+      };
+      notificationStore.addNotification({
+        title: `สถานะอัปเดต: ${statusText[ticket.status] || ticket.status}`,
+        message: `${ticket.title}`,
+        type: 'ticket',
+        ticketId: ticket.id,
+      });
       break;
     case 'ticket:deleted':
-      store.removeTicketFromList(data as string);
+      ticketStore.removeTicketFromList(data as string);
+      notifyTicketListeners(event, data);
       break;
   }
 };
@@ -108,3 +134,20 @@ export const disconnectSocket = () => {
 };
 
 export const getSocketState = () => socket?.readyState;
+
+// Listeners for component-level subscriptions
+type TicketUpdateListener = (data: { event: string; ticket?: any }) => void;
+const ticketUpdateListeners: Set<TicketUpdateListener> = new Set();
+
+export const subscribeToTicketUpdates = (listener: TicketUpdateListener) => {
+  ticketUpdateListeners.add(listener);
+  return () => {
+    ticketUpdateListeners.delete(listener);
+  };
+};
+
+export const notifyTicketListeners = (event: string, ticket: any) => {
+  ticketUpdateListeners.forEach((listener) => {
+    listener({ event, ticket });
+  });
+};
